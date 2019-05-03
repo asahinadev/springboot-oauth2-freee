@@ -1,29 +1,27 @@
 package com.example.spring.freee.config;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.Arrays;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.FormHttpMessageConverter;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.oauth2.client.userinfo.CustomUserTypesOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.DelegatingOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.client.endpoint.DefaultAuthorizationCodeTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
+import org.springframework.web.client.RestTemplate;
 
-import com.example.spring.freee.oauth2.service.FreeeUserService;
-import com.example.spring.freee.oauth2.token.AccessTokenResponseClient;
+import com.example.spring.freee.oauth2.user.FreeeUser;
+import com.example.spring.oauth2.CustomOAuth2AccessTokenResponseHttpMessageConverter;
+import com.example.spring.oauth2.LoggingClientHttpRequestInterceptor;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfiguig
+public class SecurityConfig
 		extends WebSecurityConfigurerAdapter {
 
 	@Override
@@ -75,41 +73,37 @@ public class SecurityConfiguig
 				.authorizationEndpoint()
 				.and()
 
+				// トークン取得エンドポイント
+				.tokenEndpoint()
+				.accessTokenResponseClient(accessTokenResponseClient())
+				.and()
+
 				// リダイレクトエンドポイント
 				.redirectionEndpoint()
 				.and()
 
-				.tokenEndpoint()
-				.accessTokenResponseClient(new AccessTokenResponseClient())
-				.and()
-
 				// ユーザー情報エンドポイント
 				.userInfoEndpoint()
-				.userService(userService())
+				.customUserType(FreeeUser.class, "freee")
 				.and()
 
 		;
 
 	}
 
-	private DelegatingOAuth2UserService<OAuth2UserRequest, OAuth2User> userService() {
-		Map<String, Class<? extends OAuth2User>> customUser = new HashMap<>();
+	OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
+		DefaultAuthorizationCodeTokenResponseClient client = new DefaultAuthorizationCodeTokenResponseClient();
 
-		List<OAuth2UserService<OAuth2UserRequest, OAuth2User>> userServices = new ArrayList<>();
+		RestTemplate restTemplate = new RestTemplate(Arrays.asList(
+				new FormHttpMessageConverter(),
+				new CustomOAuth2AccessTokenResponseHttpMessageConverter()));
 
-		// Freee 専用
-		userServices.add(new FreeeUserService());
+		restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+		restTemplate.setInterceptors(Arrays.asList(new LoggingClientHttpRequestInterceptor()));
 
-		// Custom UserService 
-		if (customUser.isEmpty() == false) {
-			userServices.add(new CustomUserTypesOAuth2UserService(customUser));
-		}
+		client.setRestOperations(restTemplate);
 
-		// Default UserService
-		userServices.add(new DefaultOAuth2UserService());
+		return client;
 
-		// 作成
-		return new DelegatingOAuth2UserService<>(userServices);
 	}
-
 }

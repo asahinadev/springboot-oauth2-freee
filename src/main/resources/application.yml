@@ -1,5 +1,10 @@
 server:
   port: 9002
+  ssl:
+    key-store:          "classpath:keystore.p12"
+    key-store-password: "12345678"
+    key-store-type:     "PKCS12"
+    key-alias:          "tomcat"
 
 spring:
   security:
@@ -9,11 +14,14 @@ spring:
           freee:
             provider:                     "freee"
             client-name:                  "Freee"
+            
             client-id:                    "[env]"
             client-secret:                "[env]"
+            redirect-uri:                 "{baseUrl}/login/oauth2/code/{registrationId}"
+            
             authorization-grant-type:     "authorization_code"
             client-authentication-method: "POST"
-            redirect-uri:                 "{baseUrl}/login/oauth2/code/{registrationId}"
+            
             scope:
               - account
         provider: 
